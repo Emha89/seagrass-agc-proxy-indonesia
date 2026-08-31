@@ -1,0 +1,14 @@
+# R
+.Rhistory
+.RData
+.Rproj.user/
+.Ruserdata
+
+# data and large outputs -- not distributed (third-party data policies)
+/data/
+/result*/
+/output*/
+
+# OS
+.DS_Store
+Thumbs.db
