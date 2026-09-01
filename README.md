@@ -31,12 +31,16 @@ seagrass-agc-proxy-indonesia/
 │   ├── 04_AGB/                 stage 4 -- above-ground biomass
 │   ├── 05_carbon_index/        stage 5 -- species-weighted carbon index
 │   ├── 06_AGC_final/           stage 6 -- final AGC model
-│   ├── 07_validation/          cross-site and LOLO-CV validation of AGC
-│   ├── 08_uncertainty/         spatial uncertainty / correlation length (L)
-│   └── unsorted_need_confirmation/   role not yet confirmed, see Open items
+│   └── 07_validation/          cross-site and LOLO-CV validation of AGC
 ├── gee/                        Google Earth Engine deployment script(s)
-└── data/                       not included -- see Data availability below
+└── data/                       field_data_template.xlsx only -- actual data
+                                 not included, see Data availability below
 ```
+
+Only code that the reported Results/Discussion actually rely on is published
+here. Exploratory analyses that were tried and not adopted are kept in the
+author's own local working copy rather than this repository -- see
+"Exploratory work not included" below for what that covers and why.
 
 Each stage folder generally follows a `dataPrep_* -> rf_model_* ->
 rf_applyModel_* -> rf_evalModel_*` pattern, except 02_morphology/, which
@@ -51,29 +55,28 @@ several stages depend on outputs from stages that come later in the
 numbering. This was worked out step by step while reviewing each script;
 the actual required order is:
 
-1. `01_occurrence_PA/dataPrep_func_PA.R` -- **pass 1** (produces
+1. `01_occurrence_PA/dataPrep_func_PA2.R` -- **pass 1** (produces
    `dataPA_<year>.csv` without carbon_index / morphology columns yet)
 2. `01_occurrence_PA/rf_model_PA.R` then `rf_applyModel_PA.R` (produces
    `predicted_PA_<year>.csv`)
 3. `02_morphology/rf_model_combined_MORPH3.R` then
    `rf_applyModel_MORPH3.R` (needs `predicted_PA_<year>.csv`; produces
    `predicted_MORPH3_probs_<year>.csv`)
-4. `05_carbon_index/carbon_scaling_join_SP_finalDell.R` (needs
-   `dataPA_<year>.csv` from pass 1, plus raw `dataSP_<year>.csv`;
+4. `05_carbon_index/dataPrep_mergeSpecies.R` (needs `dataPA_<year>.csv`
+   from pass 1, plus raw `sg_compos.csv`; produces `dataSP_<year>.csv`)
+5. `05_carbon_index/carbon_scaling_join_SP_finalDell.R` (needs
+   `dataPA_<year>.csv` from pass 1, plus `dataSP_<year>.csv` from step 4;
    produces `dataCARBON_<year>.csv`)
-5. `01_occurrence_PA/dataPrep_func_PA.R` again -- **pass 2** (now merges
+6. `01_occurrence_PA/dataPrep_func_PA2.R` again -- **pass 2** (now merges
    in carbon_index and the morphology P_* columns)
-6. `03_SPC/rf_model_combined_SPC.R` then `rf_applyModel_SPC.R` (training
+7. `03_SPC/rf_model_combined_SPC.R` then `rf_applyModel_SPC.R` (training
    needs the pass-2 `dataPA_<year>.csv`; apply needs `predicted_PA_<year>.csv`,
    which already carries morphology P_* via step 3's own merge)
-7. `04_AGB/dataPrep_funcGSE_AGB2.R`, `rf_model_AGB2.R`, `rf_applyModel_AGB.R`
-8. `05_carbon_index/rf_model_combined_CINDEX.R` then `rf_applyModel_cIndex.R`
-9. `06_AGC_final/dataPrep_funcGSE_AGC2.R`, `rf_model_AGC3.R`, `rf_applyModel_AGC3.R`
-10. Any `rf_evalModel_*.R` script can run any time after its matching
-    apply-model step above.
-
-`08_uncertainty/recompute_L_study2.R` and `07_validation/` can run once
-the AGC stage (step 9) is complete.
+8. `04_AGB/dataPrep_funcGSE_AGB2.R`, `rf_model_AGB2.R`, `rf_applyModel_AGB.R`
+9. `05_carbon_index/rf_model_combined_CINDEX.R` then `rf_applyModel_cIndex.R`
+10. `06_AGC_final/dataPrep_funcGSE_AGC2.R`, `rf_model_AGC3.R`, `rf_applyModel_AGC3.R`
+11. Any `rf_evalModel_*.R` script, and `07_validation/`, can run any time
+    after their matching apply-model step above.
 
 ## Data availability
 
@@ -81,6 +84,12 @@ This repository contains **analysis code only**. Field survey data compiled
 from third-party sources are subject to the data-sharing policies of the
 original providers and are not included here (see the paper's Data
 Availability statement).
+
+`data/field_data_template.xlsx` documents the exact column headers each raw
+input file needs (GT_Label_Data, GSE_Training_PerYear, Species_Composition
+sheets), with a description and example value for every column -- use it
+to structure your own data. The sections below summarise the same
+information in text form.
 
 To run this code with your own data, place a training file at:
 
@@ -95,7 +104,8 @@ morphology probability columns).
 
 Also expected under `data/`: yearly `dataSP_<year>.csv` files (raw field
 species percent-cover data with columns like `Ea_SPC`, `Th_SPC`, ...,
-`sg_morpho`), used by the carbon index stage.
+`sg_morpho`), and `sg_compos.csv` (species composition survey data, keyed
+by `compositio`) -- both used by the carbon index stage.
 
 ## Reproducing
 
@@ -103,42 +113,53 @@ species percent-cover data with columns like `Ea_SPC`, `Th_SPC`, ...,
    working directory automatically so every script's `here()` calls resolve
    to the right folder, regardless of where the repository sits on disk.
 2. Install required packages: `ranger`, `randomForest`, `caret`, `dplyr`,
-   `readr`, `sf`, `gstat`, `blockCV`, `ggplot2`, `here`.
+   `readr`, `sf`, `ggplot2`, `here`.
 3. Run the R scripts following the execution order above (not simply
-   folder 01 through 08 in sequence -- see that section for why).
+   folder 01 through 07 in sequence -- see that section for why).
 4. GEE scripts in `gee/` run separately in the
    [GEE Code Editor](https://code.earthengine.google.com) -- see comments in
    each script for GEE asset paths that need to point at your own account.
 
+## Exploratory work not included
+
+Three supplementary analyses were carried out locally but are not part of
+this repository, because none of them fed into the reported
+Results/Discussion:
+
+- **Per-region spatial correlation length (L)**: a variogram-based
+  re-estimate of L, fitted separately for each of the 6 regions. Failed
+  to converge for 4 of the 5 testable regions (fitted L exceeded the
+  region's own physical area).
+- **Cluster design effect / ICC (DEFF)**: an alternative effective-sample-
+  size estimate treating each region as a survey cluster (k=6). Gave a
+  numerically plausible pooled result, but 6 clusters is too few for a
+  reliable ICC estimate on its own.
+- **Species-type classification**: an earlier attempt to train an RF
+  classifier predicting detailed seagrass species type/dominant species
+  (`sg_type_co` / `sg_dom`) directly from GSE bands, plus exploratory
+  per-species spectral band plots. The paper's adopted approach instead
+  uses the 3-class morphology probability (02_morphology/) as the proxy
+  for species composition -- confirmed directly in the manuscript text:
+  *"the implementation in this study incorporated leaf morphology
+  probability classes as a proxy for species composition."* The species
+  presence/dominance summary report these scripts also produced is not
+  referenced by any other script in the adopted pipeline either.
+
+None of these replaced what's reported in the paper. The first two
+informed a two-sentence addition to Study 2's Limitations section (4.4);
+the third was superseded by the morphology-classifier approach entirely.
+The companion national model in Chapter 5 *did* adopt a DEFF/ICC
+replacement for its own uncertainty estimate (33 clusters via DBSCAN,
+N_effective=201.3) -- that lives in a separate repository for that
+chapter, not here.
+
 ## Open items
 
-- [x] ~~AGC data prep: `dataPrep_funcGSE_AGC2.R` vs `_AGC3.R`~~ -- resolved:
-      `AGC2` confirmed (`rf_model_AGC3.R` sources it by name)
-- [x] ~~SPC model: `rf_model_SPC.R` vs `rf_model_SPC2.R`~~ -- resolved: the
-      actual script is `rf_model_combined_SPC.R` (predictors are
-      morphology probabilities, not carbon_index -- an earlier draft
-      using carbon_index was superseded)
-- [ ] Confirm the final version for the remaining scripts with more than
-      one candidate on disk:
-  - Occurrence data prep: `dataPrep_func_PA.R` vs `dataPrep_func_PA2.R`
-    (only the first was provided; PA2 not yet reviewed)
-  - Spatial uncertainty: `recompute_L_study2.R` (included) vs `recompute_L_v2.R`
-    vs an older `recompute L.R`
-- [ ] Confirm whether `dataPrep_SPECIES.R`, `rf_model_SP.R`,
-      `rf_applyModel_SP.R` belong in the pipeline or are superseded
 - [ ] Add the GEE deployment script(s)
 - [ ] Add the paper citation once accepted
 - [ ] Choose a licence (MIT is a common default for research code; the data
       itself is governed separately by the third-party providers' terms)
-- [ ] Build a field-data Excel template: one sheet showing the expected
-      column headers (matched to what the scripts actually reference --
-      gee_id, xcoord/ycoord, year, loc, PA, tSPC, AGB_pred, AGC_pred,
-      species cover columns like `Ea_SPC`, sg_morpho, etc.), so anyone
-      reproducing the pipeline with their own field data knows the
-      required structure without needing the original data itself. All
-      R scripts have now been reviewed, so this can be compiled from the
-      column names documented across R/.
-- Note: in dataPrep_func_PA.R, the xcoord/ycoord that survive into
+- Note: in dataPrep_func_PA2.R, the xcoord/ycoord that survive into
       dataPA_<year>.csv come from the GSE-extraction side, not the GT
       field-data side (gt_sf's own coordinates are dropped earlier via
       st_as_sf() without remove = FALSE). Left as-is deliberately: the

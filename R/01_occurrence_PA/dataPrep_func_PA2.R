@@ -1,14 +1,24 @@
 # =============================================================================
-# dataPrep_func_PA.R
+# dataPrep_func_PA2.R
 # Merge ground-truth (GT) labels and multi-year GSE/GEE datasets into
 # annual cleaned training sets for the PA (occurrence probability) stage.
 #
 # PIPELINE ORDERING NOTE (important for reproduction):
 # This script optionally enriches each year's output with two columns that
-# are themselves produced by LATER stages in the pipeline:
-#   - carbon_index      <- from 05_carbon_index (dataCARBON_<year>.csv)
-#   - P_mixed_short_plus_mono_short, P_mixed_long, P_mono_Ea
-#                        <- from 02_morphology (predicted_MORPH3_probs_<year>.csv)
+# are themselves produced by LATER stages in the pipeline, forming a
+# multi-pass dependency cycle:
+#   1. This script (pass 1) produces dataPA_<year>.csv WITHOUT carbon_index
+#      or morphology probabilities yet.
+#   2. carbon_scaling_join_SP_finalDell.R (05_carbon_index) reads THIS
+#      script's pass-1 output plus raw dataSP_<year>.csv (field species
+#      cover data) to produce dataCARBON_<year>.csv (carbon_index + the
+#      morph3 label).
+#   3. 02_morphology/rf_model_combined_MORPH3.R reads dataCARBON_<year>.csv
+#      (for the morph3 label) to train, then
+#      02_morphology/rf_applyModel_MORPH3.R produces
+#      predicted_MORPH3_probs_<year>.csv.
+#   4. This script is then RE-RUN (pass 2), now able to merge in both
+#      carbon_index and the morphology P_* columns below.
 # If those files don't exist yet, the merge is skipped gracefully (a
 # warning is printed, the script does not stop) and that year's output
 # simply won't have those columns. In practice this means the script is
