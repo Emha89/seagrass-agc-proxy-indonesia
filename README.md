@@ -237,16 +237,15 @@ replacement for its own uncertainty estimate (33 clusters via DBSCAN,
 N_effective=201.3) -- that lives in a separate repository for that
 chapter, not here.
 
-## Open items
+## Notes
 
-- [ ] Add the paper citation once accepted
-- Note: in dataPrep_func_PA2.R, the xcoord/ycoord that survive into
-      dataPA_<year>.csv come from the GSE-extraction side, not the GT
-      field-data side (gt_sf's own coordinates are dropped earlier via
-      st_as_sf() without remove = FALSE). Left as-is deliberately: the
-      exact reasoning isn't fully recalled, but this is the version that
-      already produced the Study 2 / Chapter 4 manuscript results, so it
-      should not be changed without also re-checking those results.
+In dataPrep_func_PA2.R, the xcoord/ycoord that survive into
+dataPA_<year>.csv come from the GSE-extraction side, not the GT
+field-data side (gt_sf's own coordinates are dropped earlier via
+st_as_sf() without remove = FALSE). Left as-is deliberately: the
+exact reasoning isn't fully recalled, but this is the version that
+already produced the Study 2 / Chapter 4 manuscript results, so it
+should not be changed without also re-checking those results.
 
 ## Interactive AGC Viewer
 
