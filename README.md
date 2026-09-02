@@ -1,7 +1,10 @@
-# Seagrass AGC Proxy Pipeline (Indonesia) -- Study 2
+# Seagrass Above-Ground Carbon Estimation Using a Proxy-Based Framework
 
-Code accompanying: *A Proxy-Based Strategy for Estimating Seagrass Above-Ground
-Carbon from Satellite Observations* (Hafizt et al., in preparation).
+R and Google Earth Engine scripts for:
+
+Hafizt, M., Adi, N.S., Lyons, M., Phinn, S., McMahon, K., & Roelfsema, C.
+(2026). **A Proxy-Based Strategy for Estimating Seagrass Above-Ground Carbon
+from Satellite Observations**.
 
 Companion repository for Study 1 (GSE spectral analysis):
 [seagrass-spc-gse-indonesia](https://github.com/Emha89/seagrass-spc-gse-indonesia)
@@ -237,8 +240,6 @@ chapter, not here.
 ## Open items
 
 - [ ] Add the paper citation once accepted
-- [ ] Choose a licence (MIT is a common default for research code; the data
-      itself is governed separately by the third-party providers' terms)
 - Note: in dataPrep_func_PA2.R, the xcoord/ycoord that survive into
       dataPA_<year>.csv come from the GSE-extraction side, not the GT
       field-data side (gt_sf's own coordinates are dropped earlier via
@@ -247,6 +248,28 @@ chapter, not here.
       already produced the Study 2 / Chapter 4 manuscript results, so it
       should not be changed without also re-checking those results.
 
+## Interactive AGC Viewer
+
+A complete time series of annual AGC predictions (2017-2024) across all six
+study regions, plus every intermediate proxy layer and pixel-level
+uncertainty, is available at:
+https://muhammadhafizt.users.earthengine.app/view/seagrassagclocalsindonesia
+
+This app is built from `gee/3rd_paper_Apps.js` in this repository.
+
 ## Citation
 
 _(to be added once the paper is accepted)_
+
+## License
+
+This project is licensed under the MIT License -- see the
+[LICENSE](LICENSE) file for details. Field data used to produce the
+results are not covered by this license -- see Data availability above.
+
+## Contact
+
+Muhammad Hafizt
+School of the Environment, The University of Queensland, Brisbane, Australia
+National Research and Innovation Agency of Indonesia (BRIN)
+m.hafizt@uq.edu.au
