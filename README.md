@@ -32,7 +32,31 @@ seagrass-agc-proxy-indonesia/
 │   ├── 05_carbon_index/        stage 5 -- species-weighted carbon index
 │   ├── 06_AGC_final/           stage 6 -- final AGC model
 │   └── 07_validation/          cross-site and LOLO-CV validation of AGC
-├── gee/                        Google Earth Engine deployment script(s)
+├── gee/                         Google Earth Engine deployment scripts
+│   ├── 00_extractGSE_trainingPoints.js   samples GSE+terrain at the
+│   │                                      ORIGINAL training points --
+│   │                                      true source of
+│   │                                      GSE_training_<year>_CSV.csv
+│   ├── 01_trainingData_prep.js           re-samples GSE at REFINED
+│   │                                      (post-R) PA points -- runs
+│   │                                      after the R pipeline, not before
+│   ├── 01_trainingData_prepMorpho.js     same pattern, for morphology
+│   ├── 02_PROB_rf_modelDev.js            PA model, trained + deployed
+│   │                                      natively in GEE
+│   ├── 02_extent_2017-2025.js            seagrass persistence/extent
+│   │                                      maps from PA probability
+│   ├── 03_MORPHO_rf_modelDev.js          morphology model, GEE-native
+│   ├── 04_COVER_rf_modelDev.js           percent cover model, GEE-native
+│   ├── 05_AGB_rf_modelDev.js             AGB model, GEE-native
+│   ├── 06_cIndex_rf_modelDev.js          carbon index model, GEE-native
+│   ├── 07_AGC_rf_modelDev.js             final AGC model, all proxies
+│   │                                      as predictors
+│   ├── 07_AGC_rf_modelUncer.js           per-region/year AGC total +
+│   │                                      uncertainty (Monte Carlo +
+│   │                                      L=30m autocorrelation
+│   │                                      correction, active)
+│   └── 3rd_paper_Apps.js                 interactive results-preview
+│                                          dashboard
 └── data/                       field_data_template.xlsx only -- actual data
                                  not included, see Data availability below
 ```
@@ -78,6 +102,62 @@ the actual required order is:
 11. Any `rf_evalModel_*.R` script, and `07_validation/`, can run any time
     after their matching apply-model step above.
 
+## GEE execution order
+
+Like the R-side pipeline, the GEE scripts have a dependency chain that
+isn't simply "run 00 through 07 in order" -- the two 07 scripts each
+depend on all five upstream model outputs existing first:
+
+1. `00_extractGSE_trainingPoints.js` -- samples GSE+terrain at the
+   original training points, exports `GSE_training_<year>_CSV.csv` (the
+   file the R pipeline is built on)
+2. *(the full R pipeline runs here -- see the R execution order above)*
+3. `01_trainingData_prep.js` and `01_trainingData_prepMorpho.js` --
+   re-sample GSE at refined/filtered points that have been through the R
+   analysis and re-uploaded to GEE, producing `training_embedding_depth3_
+   <year>` and `training_morph3_<year>` assets
+4. `02_PROB_rf_modelDev.js` -- trains + deploys the PA model, producing
+   `RF_probability04022026_<year>`
+5. `02_extent_2017-2025.js` -- persistence/extent masks from step 4's
+   output
+6. `03_MORPHO_rf_modelDev.js` -- needs step 3's `training_morph3_<year>`;
+   produces `MORPH3_probs04022026_<year>`
+7. `04_COVER_rf_modelDev.js` -- needs step 6's morphology output;
+   produces `RF_tSPC04022026_<year>`
+8. `05_AGB_rf_modelDev.js` -- independent of steps 6-7 (GSE+depth+
+   distToLand only); produces `RF_AGB04022026_<year>`
+9. `06_cIndex_rf_modelDev.js` -- independent of steps 6-8; produces
+   `RF_cIndex04022026_<year>`
+10. `07_AGC_rf_modelDev.js` -- needs all of steps 4, 6, 7, 8, 9;
+    produces `RF_AGC04022026_<year>`
+11. `07_AGC_rf_modelUncer.js` -- needs the same five upstream outputs as
+    step 10, plus step 5's persistence mask; run once per region-year
+    combination (`TARGET_LOC` / `TARGET_YEAR` at the top of the script),
+    48 runs total (6 regions x 8 years)
+12. `3rd_paper_Apps.js` -- interactive viewer; needs all of the above,
+    plus the manually-compiled `AGC_TABLE` inside the script itself (the
+    accumulated printed output of step 11's 48 runs)
+
+**Asset naming**: every script defines `ASSET_ROOT` at the top and
+builds every other path from it (e.g. `ASSET_ROOT + '/output/
+RF_probability04022026_' + year`) -- replace `ASSET_ROOT` in each script
+with your own GEE project/asset folder and the whole chain resolves
+consistently. The Allen Coral Atlas `distToLand` layer is a separate,
+externally-hosted shared asset in every script that uses it -- that one
+needs its own access request, not just a path change.
+
+**Known naming inconsistency**: `03_MORPHO`/`04_COVER`/`05_AGB`/
+`06_cIndex` all reference a persistence mask named `..._2017_2024_mask`,
+but `02_extent_2017-2025.js` (kept exactly as originally written)
+exports that same mask as `..._2017_2025_mask`. This only affects an
+optional map-preview layer in each script, not the actual exported model
+rasters (which are unmasked) -- but if setting this up from scratch,
+either rename the exported asset or update the four references so they
+match. `07_AGC_rf_modelDev.js` and `07_AGC_rf_modelUncer.js` each
+reference a different mask (byYearCount and MaxProb respectively) that
+does line up with `02_extent_2017-2025.js`'s own naming -- see the
+comments in each file for details.
+
 ## Data availability
 
 This repository contains **analysis code only**. Field survey data compiled
@@ -117,8 +197,9 @@ by `compositio`) -- both used by the carbon index stage.
 3. Run the R scripts following the execution order above (not simply
    folder 01 through 07 in sequence -- see that section for why).
 4. GEE scripts in `gee/` run separately in the
-   [GEE Code Editor](https://code.earthengine.google.com) -- see comments in
-   each script for GEE asset paths that need to point at your own account.
+   [GEE Code Editor](https://code.earthengine.google.com) -- see the GEE
+   execution order above, and each script's own header comments for
+   asset-path placeholders that need to point at your own account.
 
 ## Exploratory work not included
 
@@ -155,7 +236,6 @@ chapter, not here.
 
 ## Open items
 
-- [ ] Add the GEE deployment script(s)
 - [ ] Add the paper citation once accepted
 - [ ] Choose a licence (MIT is a common default for research code; the data
       itself is governed separately by the third-party providers' terms)
