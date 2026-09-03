@@ -6,8 +6,13 @@ Hafizt, M., Adi, N.S., Lyons, M., Phinn, S., McMahon, K., & Roelfsema, C.
 (2026). **A Proxy-Based Strategy for Estimating Seagrass Above-Ground Carbon
 from Satellite Observations**.
 
-Companion repository for Study 1 (GSE spectral analysis):
-[seagrass-spc-gse-indonesia](https://github.com/Emha89/seagrass-spc-gse-indonesia)
+Companion repositories for this thesis:
+- Chapter 3 (field data harmonization):
+  [seagrass-agc-fieldharmonization-indonesia](https://github.com/Emha89/seagrass-agc-fieldharmonization-indonesia)
+- Chapter 4, Study 1 (GSE spectral percent-cover):
+  [seagrass-spc-gse-indonesia](https://github.com/Emha89/seagrass-spc-gse-indonesia)
+- Chapter 5 (country-wide AGC):
+  [seagrass-agc-countrywide-indonesia](https://github.com/Emha89/seagrass-agc-countrywide-indonesia)
 
 ## Overview
 
