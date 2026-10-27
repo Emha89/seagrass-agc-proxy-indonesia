@@ -2,7 +2,7 @@
 
 R, Python and Google Earth Engine (GEE) code for the paper:
 
-Hafizt, M., Lyons, M., Adi, N.S., Wicaksono, P., Hernawan, U.E., Salsabila, H.N.,
+Hafizt, M., Salsabila, H.N., Lyons, M., Adi, N.S., Wicaksono, P., Hernawan, U.E.,
 Phinn, S., McMahon, K., & Roelfsema, C. **A proxy-based workflow for seagrass
 above-ground carbon from satellite embeddings: accuracy declines with distance
 from field data.** (Citation details will be added after publication.)
