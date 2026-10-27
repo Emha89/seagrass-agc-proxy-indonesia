@@ -10,6 +10,8 @@
 #                   agc_design_distances_ext.csv (R/validation/),
 #                   seagrass_area_by_distance_class.csv (gee/11)
 # Outputs (result/paper_tables/)  Figure4_mec_vs_distance.*, Figure5_area_vs_distance.*
+# For a higher resolution, set fig_dpi before running, e.g.
+#   fig_dpi <- 600; source(here::here("R", "figures_tables", "figure4_figure5_distance.R"))
 # =============================================================================
 library(dplyr)
 library(readr)
@@ -18,6 +20,7 @@ library(patchwork)
 
 in_dir  <- if (exists("in_dir"))  in_dir  else here::here("result")
 out_dir <- if (exists("out_dir")) out_dir else here::here("result", "paper_tables")
+fig_dpi <- if (exists("fig_dpi")) fig_dpi else 300
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 f <- function(name) {
   p <- list.files(in_dir, pattern = paste0(name, "$"), full.names = TRUE)
@@ -144,9 +147,9 @@ pb <- ggplot() +
 # as two separate figures, without panel letters.
 save_fig <- function(p, stem, w_mm, h_mm) {
   w <- w_mm / 25.4; h <- h_mm / 25.4
-  ggsave(file.path(out_dir, paste0(stem, ".png")),  p, width = w, height = h, dpi = 300, bg = "white",
+  ggsave(file.path(out_dir, paste0(stem, ".png")),  p, width = w, height = h, dpi = fig_dpi, bg = "white",
          device = ragg::agg_png)
-  ggsave(file.path(out_dir, paste0(stem, ".tiff")), p, width = w, height = h, dpi = 300, bg = "white",
+  ggsave(file.path(out_dir, paste0(stem, ".tiff")), p, width = w, height = h, dpi = fig_dpi, bg = "white",
          device = ragg::agg_tiff, compression = "lzw")
   ggsave(file.path(out_dir, paste0(stem, ".pdf")),  p, width = w, height = h, bg = "white", device = cairo_pdf)
   if (requireNamespace("svglite", quietly = TRUE))

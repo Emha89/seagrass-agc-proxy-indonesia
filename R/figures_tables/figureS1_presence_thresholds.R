@@ -8,10 +8,13 @@
 # method = "f1") and typed in below.
 #
 # Output (result/paper_tables/)  FigureS1_presence_thresholds.png / .tiff / .pdf / .svg
+# For a higher resolution, set fig_dpi before running, e.g.
+#   fig_dpi <- 600; source(here::here("R", "figures_tables", "figureS1_presence_thresholds.R"))
 # =============================================================================
 library(ggplot2)
 
 out_dir <- if (exists("out_dir")) out_dir else here::here("result", "paper_tables")
+fig_dpi <- if (exists("fig_dpi")) fig_dpi else 300
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 thr <- data.frame(
@@ -39,8 +42,8 @@ p <- ggplot(thr, aes(year, threshold)) +
         plot.background = element_rect(fill = "white", colour = NA))
 
 w <- 120 / 25.4; h <- 70 / 25.4
-ggsave(file.path(out_dir, "FigureS1_presence_thresholds.png"),  p, width = w, height = h, dpi = 300, bg = "white")
-ggsave(file.path(out_dir, "FigureS1_presence_thresholds.tiff"), p, width = w, height = h, dpi = 300, bg = "white",
+ggsave(file.path(out_dir, "FigureS1_presence_thresholds.png"),  p, width = w, height = h, dpi = fig_dpi, bg = "white")
+ggsave(file.path(out_dir, "FigureS1_presence_thresholds.tiff"), p, width = w, height = h, dpi = fig_dpi, bg = "white",
        compression = "lzw")
 ggsave(file.path(out_dir, "FigureS1_presence_thresholds.pdf"),  p, width = w, height = h, bg = "white",
        device = cairo_pdf)

@@ -9,6 +9,8 @@
 #
 # Inputs (result/)  var_importance_rf_AGC.csv, agc_crossfit_iterations_ext.csv
 # Outputs (result/paper_tables/)  FigureS3_importance_AGC.png / .tiff / .pdf / .svg
+# For a higher resolution, set fig_dpi before running, e.g.
+#   fig_dpi <- 600; source(here::here("R", "figures_tables", "figureS3_agc_importance.R"))
 # =============================================================================
 library(dplyr)
 library(readr)
@@ -17,6 +19,7 @@ library(patchwork)
 
 in_dir  <- if (exists("in_dir"))  in_dir  else here::here("result")
 out_dir <- if (exists("out_dir")) out_dir else here::here("result", "paper_tables")
+fig_dpi <- if (exists("fig_dpi")) fig_dpi else 300
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 f <- function(name) {
   p <- list.files(in_dir, pattern = paste0(name, "$"), full.names = TRUE)
@@ -92,8 +95,8 @@ pb <- ggplot(cf, aes(Design, share, colour = Proxies, shape = Proxies, group = P
 fig <- pa + pb + plot_layout(widths = c(1.35, 1))
 
 w <- 174 / 25.4; h <- 95 / 25.4
-ggsave(file.path(out_dir, "FigureS3_importance_AGC.png"),  fig, width = w, height = h, dpi = 300, bg = "white")
-ggsave(file.path(out_dir, "FigureS3_importance_AGC.tiff"), fig, width = w, height = h, dpi = 300, bg = "white",
+ggsave(file.path(out_dir, "FigureS3_importance_AGC.png"),  fig, width = w, height = h, dpi = fig_dpi, bg = "white")
+ggsave(file.path(out_dir, "FigureS3_importance_AGC.tiff"), fig, width = w, height = h, dpi = fig_dpi, bg = "white",
        compression = "lzw")
 ggsave(file.path(out_dir, "FigureS3_importance_AGC.pdf"),  fig, width = w, height = h, bg = "white",
        device = cairo_pdf)

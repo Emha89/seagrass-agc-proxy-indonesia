@@ -57,8 +57,9 @@ result/    all outputs of the R scripts
 
 - R with the packages `here`, `dplyr`, `readr`, `purrr`, `tidyr`, `tibble`,
   `stringr`, `randomForest`, `ranger`, `caret`, `Metrics`, `ggplot2`, `ggpubr`,
-  `sf`, `terra`, `patchwork`, `ragg`, `scales` and `svglite`
-- Python 3 with `pandas` and `matplotlib`
+  `sf`, `terra`, `patchwork`, `ragg`, `scales`, `svglite` and `maptiles`
+  (`maptiles` only for Figure 1)
+- Python 3 with `pandas` (supplementary tables)
 - A Google Earth Engine account
 
 Open `seagrass-agc-proxy-indonesia.Rproj` in RStudio, or start R in the
@@ -75,6 +76,7 @@ Put these files in `data/`:
 | `gse_points_<year>.csv` | GSE bands (`GSE_A00` to `GSE_A63`), `depth` and `distToLand` at the field points, exported by `gee/01_extract_gse_at_field_points.js` |
 | `study_regions.shp` | Outline of the study regions, with the region name in `loc` |
 | `species_composition.csv` | Percent cover of each species (`Ea_SPC`, `Th_SPC`, ...) and the meadow type (`sg_morpho`) for each `compositio` key |
+| `eez_indonesia.shp` | Indonesian Exclusive Economic Zone from [Marine Regions](https://www.marineregions.org) (World EEZ v12), used only for Figure 1 |
 
 In GEE, set `ASSET_ROOT` at the top of every script to your own asset folder,
 and upload there: `field_points`, `study_regions`, `bathymetry` (Allen Coral
@@ -164,7 +166,11 @@ stopped run can be started again. A full run takes several hours per script.
 2. Run `gee/12_figure6_layers.js` (set `YEAR`, `REGION` and `CRS` in its
    configuration block) and copy the three `Fig6_*` files to `result/gee/`.
 3. Run the scripts in `R/figures_tables/`. Figures are written to
-   `result/paper_tables/`. The tables are built with
+   `result/paper_tables/` as PNG and TIFF (300 dpi) and as PDF (vector).
+   For a higher resolution, set `fig_dpi` before running a script, e.g.
+   `fig_dpi <- 600; source(here::here("R", "figures_tables", "figure4_figure5_distance.R"))`.
+   Figure 1 downloads its basemaps with `maptiles`, so it needs an internet
+   connection. The tables are built with
 
    ```
    python3 R/figures_tables/supplementary_tables.py result result/supplement
@@ -175,7 +181,9 @@ stopped run can be started again. A full run takes several hours per script.
 | Result | Scripts |
 |---|---|
 | Table 3 | `R/validation/02` (PARTS A, B, D), `R/validation/03` (PARTS F, K, L) |
-| Figure 3 | `R/figures_tables/figure3_validation_designs.py` (schematic) |
+| Figure 1 | `R/figures_tables/figure1_study_area.R` (map; the inset centres can be set in the script) |
+| Figure 2 | `R/figures_tables/figure2_workflow.R` (schematic) |
+| Figure 3 | `R/figures_tables/figure3_validation_designs.R` (schematic) |
 | Figure 4 | `R/validation/02` and `03`, then `R/figures_tables/figure4_figure5_distance.R` |
 | Figure 5 | `gee/11`, then `R/figures_tables/figure4_figure5_distance.R` |
 | Figure 6 | `gee/12`, then `R/figures_tables/figure6_accuracy_map.R` (the final layout was arranged in QGIS from the same layers) |
@@ -192,11 +200,12 @@ stopped run can be started again. A full run takes several hours per script.
 | Table S11 | `gee/11_distance_to_field_samples.js` |
 | Table S12 | `R/validation/03` (PART G) |
 | Figure S1 | `R/workflow/04`, then `R/figures_tables/figureS1_presence_thresholds.R` |
+| Figure S2 | `R/workflow/01`, then `R/figures_tables/figureS2_gse_band_by_year.R` |
 | Figure S3 | `R/workflow/18` and `R/validation/03` (PART L), then `R/figures_tables/figureS3_agc_importance.R` |
 
 Tables S1 to S10 and S12 are written as CSV files by
-`R/figures_tables/supplementary_tables.py`. Figures 1 and 2, Tables 1, 2 and 4
-and Figure S2 were made without the code in this repository.
+`R/figures_tables/supplementary_tables.py`. Tables 1, 2 and 4 were made
+without the code in this repository.
 
 ## Data availability
 
