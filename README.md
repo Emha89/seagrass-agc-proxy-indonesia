@@ -1,279 +1,228 @@
-# Seagrass Above-Ground Carbon Estimation Using a Proxy-Based Framework
+# Seagrass above-ground carbon from satellite embeddings: proxy workflow and leak-free validation
 
-R and Google Earth Engine scripts for:
+R, Python and Google Earth Engine (GEE) code for the paper:
 
-Hafizt, M., Adi, N.S., Lyons, M., Phinn, S., McMahon, K., & Roelfsema, C.
-(2026). **A Proxy-Based Strategy for Estimating Seagrass Above-Ground Carbon
-from Satellite Observations**.
+Hafizt, M., Lyons, M., Adi, N.S., Wicaksono, P., Hernawan, U.E., Salsabila, H.N.,
+Phinn, S., McMahon, K., & Roelfsema, C. **A proxy-based workflow for seagrass
+above-ground carbon from satellite embeddings: accuracy declines with distance
+from field data.** (Citation details will be added after publication.)
 
-Companion repositories for this thesis:
-- Chapter 3 (field data harmonization):
-  [seagrass-agc-fieldharmonization-indonesia](https://github.com/Emha89/seagrass-agc-fieldharmonization-indonesia)
-- Chapter 4, Study 1 (GSE spectral percent-cover):
-  [seagrass-spc-gse-indonesia](https://github.com/Emha89/seagrass-spc-gse-indonesia)
-- Chapter 5 (country-wide AGC):
-  [seagrass-agc-countrywide-indonesia](https://github.com/Emha89/seagrass-agc-countrywide-indonesia)
+The repository holds code only. No field data, model outputs or GEE assets are
+included (see [Data availability](#data-availability)).
 
 ## Overview
 
-Six sequential Random Forest proxy stages predict above-ground carbon (AGC)
-from Google Satellite Embeddings (GSE) and field survey data:
-
-`occurrence probability -> leaf morphology probability -> percent cover (SPC)
--> above-ground biomass (AGB) -> species-weighted carbon index -> final AGC`
-
-Models are developed and evaluated in R (Monte Carlo resampling, leave-one-
-location-out cross-validation across six regions), then the tuned models are
-deployed in Google Earth Engine (GEE) to generate annual AGC maps (2017-2024)
-with pixel-level uncertainty.
+- **Proxy workflow.** Five Random Forest models predict seagrass presence, leaf
+  morphology class probabilities, percent cover, above-ground biomass (AGB) and
+  a species-weighted carbon index from the 64 bands of the Google Satellite
+  Embeddings (GSE), water depth and distance to land. A final model predicts
+  above-ground carbon (AGC) from the GSE bands and these proxy layers. The AGB
+  and AGC models are trained on the field point estimates.
+- **Leak-free validation.** In every repeat, fold and pair, all five proxy
+  models are refitted with the training samples only, and all quadrats of one
+  10 m pixel stay on the same side of a split. The designs are the pixel
+  hold-out, spatial blocks of 100 to 1000 m, a new survey of the same region,
+  unseen regions (leave-one-location-out) and single-region transfer. Each is
+  compared with a GSE-only model and a mean-value baseline.
+- **Accuracy and distance.** The distance from each test sample to the nearest
+  training sample is recorded for every design, and the distance from each
+  mapped pixel to the nearest AGC sample is computed in GEE.
+- **Annual maps.** The models are refitted in GEE with the same settings and
+  applied to the annual GSE layers of 2017 to 2024.
 
 ## Repository structure
 
 ```
 seagrass-agc-proxy-indonesia/
 ├── R/
-│   ├── 00_shared_functions/    shared plotting / classification / regression helpers
-│   ├── 01_occurrence_PA/       stage 1 -- seagrass occurrence probability
-│   ├── 02_morphology/          stage 2 -- leaf morphology probability
-│   ├── 03_SPC/                 stage 3 -- percent cover
-│   ├── 04_AGB/                 stage 4 -- above-ground biomass
-│   ├── 05_carbon_index/        stage 5 -- species-weighted carbon index
-│   ├── 06_AGC_final/           stage 6 -- final AGC model
-│   └── 07_validation/          cross-site and LOLO-CV validation of AGC
-├── gee/                         Google Earth Engine deployment scripts
-│   ├── 00_extractGSE_trainingPoints.js   samples GSE+terrain at the
-│   │                                      ORIGINAL training points --
-│   │                                      true source of
-│   │                                      GSE_training_<year>_CSV.csv
-│   ├── 01_trainingData_prep.js           re-samples GSE at REFINED
-│   │                                      (post-R) PA points -- runs
-│   │                                      after the R pipeline, not before
-│   ├── 01_trainingData_prepMorpho.js     same pattern, for morphology
-│   ├── 02_PROB_rf_modelDev.js            PA model, trained + deployed
-│   │                                      natively in GEE
-│   ├── 02_extent_2017-2025.js            seagrass persistence/extent
-│   │                                      maps from PA probability
-│   ├── 03_MORPHO_rf_modelDev.js          morphology model, GEE-native
-│   ├── 04_COVER_rf_modelDev.js           percent cover model, GEE-native
-│   ├── 05_AGB_rf_modelDev.js             AGB model, GEE-native
-│   ├── 06_cIndex_rf_modelDev.js          carbon index model, GEE-native
-│   ├── 07_AGC_rf_modelDev.js             final AGC model, all proxies
-│   │                                      as predictors
-│   ├── 07_AGC_rf_modelUncer.js           per-region/year AGC total +
-│   │                                      uncertainty (Monte Carlo +
-│   │                                      L=30m autocorrelation
-│   │                                      correction, active)
-│   └── 3rd_paper_Apps.js                 interactive results-preview
-│                                          dashboard
-└── data/                       field_data_template.xlsx only -- actual data
-                                 not included, see Data availability below
+│   ├── functions/        helper functions sourced by the workflow scripts
+│   ├── workflow/         01-18  data preparation and models, in run order
+│   ├── validation/       01-03  leak-free validation designs
+│   └── figures_tables/   figures and supplementary tables of the paper
+├── gee/                  01-12  Google Earth Engine scripts, in run order
+├── seagrass-agc-proxy-indonesia.Rproj
+├── LICENSE
+└── README.md
 ```
 
-Only code that the reported Results/Discussion actually rely on is published
-here. Exploratory analyses that were tried and not adopted are kept in the
-author's own local working copy rather than this repository -- see
-"Exploratory work not included" below for what that covers and why.
+Folders that are created when the code runs and are not part of the
+repository:
 
-Each stage folder generally follows a `dataPrep_* -> rf_model_* ->
-rf_applyModel_* -> rf_evalModel_*` pattern, except 02_morphology/, which
-is a single combined script (data prep, training, prediction, and
-evaluation together) plus a separate apply-model and eval script.
+```
+data/      your input files (see below)
+result/    all outputs of the R scripts
+```
 
-## Suggested execution order
+## Requirements
 
-The folder numbers (01-06) describe the proxy chain described in the
-paper, but do NOT match the order scripts actually need to run in --
-several stages depend on outputs from stages that come later in the
-numbering. This was worked out step by step while reviewing each script;
-the actual required order is:
+- R with the packages `here`, `dplyr`, `readr`, `purrr`, `tidyr`, `tibble`,
+  `stringr`, `randomForest`, `ranger`, `caret`, `Metrics`, `ggplot2`, `ggpubr`,
+  `sf`, `terra`, `patchwork`, `ragg`, `scales` and `svglite`
+- Python 3 with `pandas` and `matplotlib`
+- A Google Earth Engine account
 
-1. `01_occurrence_PA/dataPrep_func_PA2.R` -- **pass 1** (produces
-   `dataPA_<year>.csv` without carbon_index / morphology columns yet)
-2. `01_occurrence_PA/rf_model_PA.R` then `rf_applyModel_PA.R` (produces
-   `predicted_PA_<year>.csv`)
-3. `02_morphology/rf_model_combined_MORPH3.R` then
-   `rf_applyModel_MORPH3.R` (needs `predicted_PA_<year>.csv`; produces
-   `predicted_MORPH3_probs_<year>.csv`)
-4. `05_carbon_index/dataPrep_mergeSpecies.R` (needs `dataPA_<year>.csv`
-   from pass 1, plus raw `sg_compos.csv`; produces `dataSP_<year>.csv`)
-5. `05_carbon_index/carbon_scaling_join_SP_finalDell.R` (needs
-   `dataPA_<year>.csv` from pass 1, plus `dataSP_<year>.csv` from step 4;
-   produces `dataCARBON_<year>.csv`)
-6. `01_occurrence_PA/dataPrep_func_PA2.R` again -- **pass 2** (now merges
-   in carbon_index and the morphology P_* columns)
-7. `03_SPC/rf_model_combined_SPC.R` then `rf_applyModel_SPC.R` (training
-   needs the pass-2 `dataPA_<year>.csv`; apply needs `predicted_PA_<year>.csv`,
-   which already carries morphology P_* via step 3's own merge)
-8. `04_AGB/dataPrep_funcGSE_AGB2.R`, `rf_model_AGB2.R`, `rf_applyModel_AGB.R`
-9. `05_carbon_index/rf_model_combined_CINDEX.R` then `rf_applyModel_cIndex.R`
-10. `06_AGC_final/dataPrep_funcGSE_AGC2.R`, `rf_model_AGC3.R`, `rf_applyModel_AGC3.R`
-11. Any `rf_evalModel_*.R` script, and `07_validation/`, can run any time
-    after their matching apply-model step above.
+Open `seagrass-agc-proxy-indonesia.Rproj` in RStudio, or start R in the
+repository root. All R scripts find the `data/` and `result/` folders with
+`here()`, so no paths need to be changed.
 
-## GEE execution order
+## Input data
 
-Like the R-side pipeline, the GEE scripts have a dependency chain that
-isn't simply "run 00 through 07 in order" -- the two 07 scripts each
-depend on all five upstream model outputs existing first:
+Put these files in `data/`:
 
-1. `00_extractGSE_trainingPoints.js` -- samples GSE+terrain at the
-   original training points, exports `GSE_training_<year>_CSV.csv` (the
-   file the R pipeline is built on)
-2. *(the full R pipeline runs here -- see the R execution order above)*
-3. `01_trainingData_prep.js` and `01_trainingData_prepMorpho.js` --
-   re-sample GSE at refined/filtered points that have been through the R
-   analysis and re-uploaded to GEE, producing `training_embedding_depth3_
-   <year>` and `training_morph3_<year>` assets
-4. `02_PROB_rf_modelDev.js` -- trains + deploys the PA model, producing
-   `RF_probability04022026_<year>`
-5. `02_extent_2017-2025.js` -- persistence/extent masks from step 4's
-   output
-6. `03_MORPHO_rf_modelDev.js` -- needs step 3's `training_morph3_<year>`;
-   produces `MORPH3_probs04022026_<year>`
-7. `04_COVER_rf_modelDev.js` -- needs step 6's morphology output;
-   produces `RF_tSPC04022026_<year>`
-8. `05_AGB_rf_modelDev.js` -- independent of steps 6-7 (GSE+depth+
-   distToLand only); produces `RF_AGB04022026_<year>`
-9. `06_cIndex_rf_modelDev.js` -- independent of steps 6-8; produces
-   `RF_cIndex04022026_<year>`
-10. `07_AGC_rf_modelDev.js` -- needs all of steps 4, 6, 7, 8, 9;
-    produces `RF_AGC04022026_<year>`
-11. `07_AGC_rf_modelUncer.js` -- needs the same five upstream outputs as
-    step 10, plus step 5's persistence mask; run once per region-year
-    combination (`TARGET_LOC` / `TARGET_YEAR` at the top of the script),
-    48 runs total (6 regions x 8 years)
-12. `3rd_paper_Apps.js` -- interactive viewer; needs all of the above,
-    plus the manually-compiled `AGC_TABLE` inside the script itself (the
-    accumulated printed output of step 11's 48 runs)
+| File | Content |
+|---|---|
+| `field_points.csv` | One row per field point: `gee_id`, `OBJECTID`, `year`, `loc` (region), `xcoord`, `ycoord` (decimal degrees), `PA` (0/1), `tSPC` (percent cover), `compositio` (key to the species table), and the point estimate and 95% bounds of AGB and AGC (`AGB_pred`, `AGB_low`, `AGB_up`, `AGC_pred`, `AGC_low`, `AGC_up`) |
+| `gse_points_<year>.csv` | GSE bands (`GSE_A00` to `GSE_A63`), `depth` and `distToLand` at the field points, exported by `gee/01_extract_gse_at_field_points.js` |
+| `study_regions.shp` | Outline of the study regions, with the region name in `loc` |
+| `species_composition.csv` | Percent cover of each species (`Ea_SPC`, `Th_SPC`, ...) and the meadow type (`sg_morpho`) for each `compositio` key |
 
-**Asset naming**: every script defines `ASSET_ROOT` at the top and
-builds every other path from it (e.g. `ASSET_ROOT + '/output/
-RF_probability04022026_' + year`) -- replace `ASSET_ROOT` in each script
-with your own GEE project/asset folder and the whole chain resolves
-consistently. The Allen Coral Atlas `distToLand` layer is a separate,
-externally-hosted shared asset in every script that uses it -- that one
-needs its own access request, not just a path change.
+In GEE, set `ASSET_ROOT` at the top of every script to your own asset folder,
+and upload there: `field_points`, `study_regions`, `bathymetry` (Allen Coral
+Atlas bathymetry) and `wave_2024` (wave and elevation layer, sampled by
+`gee/01` but not used in the models). Two more point tables are uploaded during
+the run (see below). The distance-to-land layer
+(`projects/coral_atlas/global_datasets/osm_distToLand_indo`) is a shared Allen
+Coral Atlas asset that needs its own access.
 
-**Known naming inconsistency**: `03_MORPHO`/`04_COVER`/`05_AGB`/
-`06_cIndex` all reference a persistence mask named `..._2017_2024_mask`,
-but `02_extent_2017-2025.js` (kept exactly as originally written)
-exports that same mask as `..._2017_2025_mask`. This only affects an
-optional map-preview layer in each script, not the actual exported model
-rasters (which are unmasked) -- but if setting this up from scratch,
-either rename the exported asset or update the four references so they
-match. `07_AGC_rf_modelDev.js` and `07_AGC_rf_modelUncer.js` each
-reference a different mask (byYearCount and MaxProb respectively) that
-does line up with `02_extent_2017-2025.js`'s own naming -- see the
-comments in each file for details.
+## How to run
+
+### 1. GSE at the field points (GEE)
+
+Run `gee/01_extract_gse_at_field_points.js` and copy the exported
+`gse_points_<year>.csv` files to `data/`.
+
+### 2. Data preparation and models (R)
+
+Run the scripts in `R/workflow/` in number order. Two scripts run twice, because
+the presence tables need the outputs of later steps:
+
+| Step | Script | Main outputs (in `result/`) |
+|---|---|---|
+| 01 | `01_prepare_point_data.R` | `dataPA_<year>.csv` |
+| 02 | `02_presence_model.R` | presence model, `grid_rf_best_PA.csv` |
+| 03 | `03_presence_apply.R` | `predicted_PA_<year>.csv` |
+| 04 | `04_presence_thresholds.R` | accuracy and best F1 threshold per year |
+| 05 | `05_species_composition.R` | `dataSP_<year>.csv` |
+| 06 | `06_carbon_index_field.R` | field carbon index, `dataCARBON_<year>.csv` |
+| 07 | `07_morphology_model.R` | morphology model, `training_MORPH3_points_ALL.csv` |
+| 08 | `08_morphology_apply.R` | `predicted_MORPH3_probs_<year>.csv` |
+| | **Run 01 and 03 again** | adds the carbon index and the morphology probabilities |
+| 09 | `09_cover_model.R` | percent cover model |
+| 10 | `10_cover_apply.R` | `predicted_tSPC_<year>.csv` |
+| 11 | `11_carbon_index_model.R` | carbon index model |
+| 12 | `12_carbon_index_apply.R` | `predicted_indexC_<year>.csv` |
+| 13 | `13_agb_data.R` | `dataAGB_<year>.csv` (also sourced by 14 and 15) |
+| 14 | `14_agb_tuning.R` | `grid_rf_best_AGB.csv` |
+| 15 | `15_agb_model.R` | final AGB model, `predicted_tAGB_<year>.csv` |
+| 16 | `16_agc_data.R` | `dataAGC_<year>.csv` (also sourced by 17 and 18) |
+| 17 | `17_agc_tuning.R` | `grid_rf_best_AGC.csv` |
+| 18 | `18_agc_model.R` | final AGC model with the predicted carbon index |
+
+The Random Forest settings of every model come from a grid search over five
+random 70/30 splits (Table S3 of the paper).
+
+### 3. Annual maps (GEE)
+
+Upload two point tables to `ASSET_ROOT`: `training_points` (the field points
+with their labels after step 08 of the R workflow) and
+`training_points_morphology` (`result/training_MORPH3_points_ALL.csv`). Then run:
+
+| Script | Output assets |
+|---|---|
+| `02_training_points.js` | `training_gse_<year>` |
+| `03_training_points_morphology.js` | `training_gse_morphology_<year>` |
+| `04_presence_model.js` | `presence_prob_<year>`, `presence_mask_<year>` |
+| `05_seagrass_extent.js` | `seagrass_extent_2017_2024` (presence probability of at least 0.8 in any year) |
+| `06_morphology_model.js` | `morphology_prob_<year>` |
+| `07_cover_model.js` | `cover_<year>` (trained on samples with seagrass present only) |
+| `08_agb_model.js` | `agb_<year>` |
+| `09_carbon_index_model.js` | `carbon_index_<year>` |
+| `10_agc_model.js` | `agc_<year>` |
+
+The GEE models use the same settings as the R models. They are refits, so their
+values differ slightly from the R models.
+
+### 4. Validation (R)
+
+Run the scripts in `R/validation/` in number order. Each script starts in a
+test mode (`test_mode <- TRUE`, or `ext_test_mode <- TRUE` in script 03) with
+one repeat and 50 trees. When the test run works, set it to `FALSE` and run
+again. Finished folds and repeats are saved as checkpoints in `result/`, so a
+stopped run can be started again. A full run takes several hours per script.
+
+| Script | Designs |
+|---|---|
+| `01_proxy_models_and_pixel_sharing.R` | presence, morphology and carbon index models with random-row and pixel-grouped test sets; quadrats that share a pixel |
+| `02_agc_pixel_lolo_transfer.R` | pixel hold-out, unseen regions (LOLO-CV), single-region transfer; percent cover and AGB models |
+| `03_agc_blocks_surveys_crossfit.R` | new survey, uncertainty of the reference AGC, proxy models trained on all samples, spatial blocks, test-to-training distances, proxy workflow in 250 m blocks, cross-fitted proxies |
+
+### 5. Distance to field data, figures and tables
+
+1. Run `gee/11_distance_to_field_samples.js` and copy
+   `seagrass_area_by_distance_class.csv` and `seagrass_distance_percentiles.csv`
+   to `result/`.
+2. Run `gee/12_figure6_layers.js` (set `YEAR`, `REGION` and `CRS` in its
+   configuration block) and copy the three `Fig6_*` files to `result/gee/`.
+3. Run the scripts in `R/figures_tables/`. Figures are written to
+   `result/paper_tables/`. The tables are built with
+
+   ```
+   python3 R/figures_tables/supplementary_tables.py result result/supplement
+   ```
+
+## Scripts behind each result of the paper
+
+| Result | Scripts |
+|---|---|
+| Table 3 | `R/validation/02` (PARTS A, B, D), `R/validation/03` (PARTS F, K, L) |
+| Figure 3 | `R/figures_tables/figure3_validation_designs.py` (schematic) |
+| Figure 4 | `R/validation/02` and `03`, then `R/figures_tables/figure4_figure5_distance.R` |
+| Figure 5 | `gee/11`, then `R/figures_tables/figure4_figure5_distance.R` |
+| Figure 6 | `gee/12`, then `R/figures_tables/figure6_accuracy_map.R` (the final layout was arranged in QGIS from the same layers) |
+| Table S1 | `R/validation/01` (PART B), `R/validation/02` (PART E) |
+| Table S2 | species weights in `R/workflow/06_carbon_index_field.R` |
+| Table S3 | grid search in `R/workflow/02`, `07`, `09`, `11`, `14` and `17` |
+| Table S4 | `R/validation/03` (PART H) |
+| Table S5 | `R/validation/01` (PART A) |
+| Table S6 | `R/validation/02` (PART D) |
+| Table S7 | `R/validation/03` (PART L) |
+| Table S8 | `R/validation/03` (PART I) |
+| Table S9 | `R/validation/03` (PARTS F, J), `R/validation/02` (PART A) |
+| Table S10 | `R/validation/02` (PART B) |
+| Table S11 | `gee/11_distance_to_field_samples.js` |
+| Table S12 | `R/validation/03` (PART G) |
+| Figure S1 | `R/workflow/04`, then `R/figures_tables/figureS1_presence_thresholds.R` |
+| Figure S3 | `R/workflow/18` and `R/validation/03` (PART L), then `R/figures_tables/figureS3_agc_importance.R` |
+
+Tables S1 to S10 and S12 are written as CSV files by
+`R/figures_tables/supplementary_tables.py`. Figures 1 and 2, Tables 1, 2 and 4
+and Figure S2 were made without the code in this repository.
 
 ## Data availability
 
-This repository contains **analysis code only**. Field survey data compiled
-from third-party sources are subject to the data-sharing policies of the
-original providers and are not included here (see the paper's Data
-Availability statement).
+The field data used in the paper are owned by several Indonesian government
+institutions and were collected under national survey programmes. Their data
+governance rules do not allow public redistribution. Published datasets are
+cited in Table 2 of the paper. Other data are available from the corresponding
+author on reasonable request and with permission from the data custodians. The
+Google Satellite Embeddings are open in the
+[GEE Data Catalog](https://developers.google.com/earth-engine/datasets).
 
-`data/field_data_template.xlsx` documents the exact column headers each raw
-input file needs (GT_Label_Data, GSE_Training_PerYear, Species_Composition
-sheets), with a description and example value for every column -- use it
-to structure your own data. The sections below summarise the same
-information in text form.
+The `.gitignore` keeps data files and outputs out of the repository.
 
-To run this code with your own data, place a training file at:
+## Related repositories
 
-```
-data/carbon_scaling_join_SP_finalDell.csv
-```
-
-Expected columns include coordinate fields (`xcoord`, `ycoord`), response
-variables (e.g. `AGC_pred`), 64 GSE embedding bands (`GSE_A00`-`GSE_A63`),
-and proxy predictor columns (`carbon_index`, `tSPC_pred`, `tAGB_pred`,
-morphology probability columns).
-
-Also expected under `data/`: yearly `dataSP_<year>.csv` files (raw field
-species percent-cover data with columns like `Ea_SPC`, `Th_SPC`, ...,
-`sg_morpho`), and `sg_compos.csv` (species composition survey data, keyed
-by `compositio`) -- both used by the carbon index stage.
-
-## Reproducing
-
-1. Open `seagrass-agc-proxy-indonesia.Rproj` in RStudio. This sets the
-   working directory automatically so every script's `here()` calls resolve
-   to the right folder, regardless of where the repository sits on disk.
-2. Install required packages: `ranger`, `randomForest`, `caret`, `dplyr`,
-   `readr`, `sf`, `ggplot2`, `here`.
-3. Run the R scripts following the execution order above (not simply
-   folder 01 through 07 in sequence -- see that section for why).
-4. GEE scripts in `gee/` run separately in the
-   [GEE Code Editor](https://code.earthengine.google.com) -- see the GEE
-   execution order above, and each script's own header comments for
-   asset-path placeholders that need to point at your own account.
-
-## Exploratory work not included
-
-Three supplementary analyses were carried out locally but are not part of
-this repository, because none of them fed into the reported
-Results/Discussion:
-
-- **Per-region spatial correlation length (L)**: a variogram-based
-  re-estimate of L, fitted separately for each of the 6 regions. Failed
-  to converge for 4 of the 5 testable regions (fitted L exceeded the
-  region's own physical area).
-- **Cluster design effect / ICC (DEFF)**: an alternative effective-sample-
-  size estimate treating each region as a survey cluster (k=6). Gave a
-  numerically plausible pooled result, but 6 clusters is too few for a
-  reliable ICC estimate on its own.
-- **Species-type classification**: an earlier attempt to train an RF
-  classifier predicting detailed seagrass species type/dominant species
-  (`sg_type_co` / `sg_dom`) directly from GSE bands, plus exploratory
-  per-species spectral band plots. The paper's adopted approach instead
-  uses the 3-class morphology probability (02_morphology/) as the proxy
-  for species composition -- confirmed directly in the manuscript text:
-  *"the implementation in this study incorporated leaf morphology
-  probability classes as a proxy for species composition."* The species
-  presence/dominance summary report these scripts also produced is not
-  referenced by any other script in the adopted pipeline either.
-
-None of these replaced what's reported in the paper. The first two
-informed a two-sentence addition to Study 2's Limitations section (4.4);
-the third was superseded by the morphology-classifier approach entirely.
-The companion national model in Chapter 5 *did* adopt a DEFF/ICC
-replacement for its own uncertainty estimate (33 clusters via DBSCAN,
-N_effective=201.3) -- that lives in a separate repository for that
-chapter, not here.
-
-## Notes
-
-In dataPrep_func_PA2.R, the xcoord/ycoord that survive into
-dataPA_<year>.csv come from the GSE-extraction side, not the GT
-field-data side (gt_sf's own coordinates are dropped earlier via
-st_as_sf() without remove = FALSE). Left as-is deliberately: the
-exact reasoning isn't fully recalled, but this is the version that
-already produced the Study 2 / Chapter 4 manuscript results, so it
-should not be changed without also re-checking those results.
-
-## Interactive AGC Viewer
-
-A complete time series of annual AGC predictions (2017-2024) across all six
-study regions, plus every intermediate proxy layer and pixel-level
-uncertainty, is available at:
-https://muhammadhafizt.users.earthengine.app/view/seagrassagclocalsindonesia
-
-This app is built from `gee/3rd_paper_Apps.js` in this repository.
-
-## Citation
-
-_(to be added once the paper is accepted)_
+- [seagrass-agc-fieldharmonization-indonesia](https://github.com/Emha89/seagrass-agc-fieldharmonization-indonesia)
+- [seagrass-spc-gse-indonesia](https://github.com/Emha89/seagrass-spc-gse-indonesia)
+- [seagrass-agc-countrywide-indonesia](https://github.com/Emha89/seagrass-agc-countrywide-indonesia)
 
 ## License
 
-This project is licensed under the MIT License -- see the
-[LICENSE](LICENSE) file for details. Field data used to produce the
-results are not covered by this license -- see Data availability above.
+MIT License, see [LICENSE](LICENSE). The field data are not covered by this
+license.
 
 ## Contact
 
-Muhammad Hafizt
-School of the Environment, The University of Queensland, Brisbane, Australia
-National Research and Innovation Agency of Indonesia (BRIN)
-m.hafizt@uq.edu.au
+Muhammad Hafizt, School of the Environment, The University of Queensland,
+Brisbane, Australia, and National Research and Innovation Agency of Indonesia
+(BRIN). m.hafizt@uq.edu.au

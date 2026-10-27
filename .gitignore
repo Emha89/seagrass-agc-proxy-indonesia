@@ -4,10 +4,28 @@
 .Rproj.user/
 .Ruserdata
 
-# data and large outputs -- not distributed (third-party data policies)
+# Python
+__pycache__/
+*.pyc
+
+# data and model outputs -- not distributed (data governance of the field data)
 /data/
 /result*/
 /output*/
+/checkpoint*/
+*.csv
+*.xlsx
+*.xls
+*.rds
+*.RData
+*.tif
+*.tiff
+*.shp
+*.dbf
+*.shx
+*.prj
+*.gpkg
+*.zip
 
 # OS
 .DS_Store
